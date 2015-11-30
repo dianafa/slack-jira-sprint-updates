@@ -8,6 +8,7 @@ from credentials import SLACK_BOT_TOKEN,\
     JIRA_AUTHORIZATION,\
     JIRA_API_URL,\
     SLACK_CHANNEL_ID,\
+    SLACK_TEST_CHANNEL_ID,\
     SLACK_BOT_NAME
 
 days_count = {
@@ -49,11 +50,11 @@ class JiraController():
 
         response = requests.get(JIRA_API_URL,
             params = {
-                'jql': 'status in (Closed) AND project="' + params['project_name'] + '" AND updated >= -' + params['days_before'] + 'd AND status was in (QA, "Code Review")'
+                'jql': 'status in (Closed, done, "To be merged") AND project="' + params['project_name'] + '" AND updated >= -' + params['days_before'] + 'd AND status was in (QA, "Code Review") and resolution not in ("Won\'t Do", "Won\'t Fix")'
             },
             headers = headers).json()
 
-        logging.info("\nFetching data from last " + params['days_before'] + " days for project " + params['project_name'])
+        logging.info("\n\n*** Fetching data from last " + params['days_before'] + " days for project " + params['project_name'] + ". ***\n\n")
 
         return response
 
@@ -62,8 +63,7 @@ class JiraController():
         today = datetime.datetime.today().weekday()
         params = {'project_name': project_name, 'days_before': days_count[today]}
 
-        optlist, args = getopt.getopt(sys.argv[1:], "p:d:", ["project=", "days="])
-        print optlist
+        optlist, args = getopt.getopt(sys.argv[1:], "p:d:", ["project=", "days=", "test"])
 
         for option, arg in optlist:
             if option in ("-p", "--project") and arg != '--days':
@@ -78,6 +78,13 @@ class SlackUpdater(object):
     SLACK_API_URL = 'https://slack.com/api/chat.postMessage'
 
     def __init__(self, slack_bot_token = None, slack_bot_channel = SLACK_CHANNEL_ID):
+        params = sys.argv[1:]
+
+        for param in params:
+            if param == "--test":
+                slack_bot_channel = SLACK_TEST_CHANNEL_ID
+                break
+
         assert slack_bot_token is not None
         assert slack_bot_channel is not None
 
@@ -112,7 +119,7 @@ class SlackUpdater(object):
 
 if __name__ == "__main__":
     calculation = JiraController()
-    slack_updater = SlackUpdater( slack_bot_token = SLACK_BOT_TOKEN )
+    slack_updater = SlackUpdater(slack_bot_token = SLACK_BOT_TOKEN)
 
     tickets = calculation.get_tickets()
     release_update = slack_updater.prepare_slack_update(tickets)
