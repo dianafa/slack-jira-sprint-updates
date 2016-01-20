@@ -12,13 +12,13 @@ from credentials import SLACK_BOT_TOKEN,\
     SLACK_BOT_NAME
 
 days_count = {
-    0: '6',
-    1: '2',
-    2: '3',
-    3: '2',
-    4: '3',
-    5: '4',
-    6: '5'
+    0: '3', #Sunday
+    1: '4', #Monday
+    2: '1', #Tue
+    3: '1', #Wed
+    4: '1', #Thu
+    5: '1', #Fri
+    6: '2'  #Sat
 }
 
 class JiraController():
@@ -50,7 +50,7 @@ class JiraController():
 
         response = requests.get(JIRA_API_URL,
             params = {
-                'jql': 'status in (Closed, done, "To be merged") AND project="' + params['project_name'] + '" AND updated >= -' + params['days_before'] + 'd AND status was in (QA, "Code Review") and resolution not in ("Won\'t Do", "Won\'t Fix")'
+                'jql': 'status in (Closed, done, "To be merged") AND project="' + params['project_name'] + '" AND updated >= -' + params['days_before'] + 'd AND status was in (QA, "Code Review")'
             },
             headers = headers).json()
 
