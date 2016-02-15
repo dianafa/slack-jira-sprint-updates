@@ -107,7 +107,7 @@ class SlackUpdater(object):
 
         logging.info("\nPosting to Slack: done")
 
-    def prepare_slack_update(self, tickets, team = '*Content West- Wing*'):
+    def prepare_slack_update(self, tickets, team = '*Fan Knowledge West- Wing*'):
         """
         Processes acquired results
         """
