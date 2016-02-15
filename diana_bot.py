@@ -48,18 +48,23 @@ class JiraController():
             'Authorization': JIRA_AUTHORIZATION
         }
 
-        response = requests.get(JIRA_API_URL,
-            params = {
-                'jql': 'status in (Closed, done, "To be merged") AND project="' + params['project_name'] + '" AND updated >= -' + params['days_before'] + 'd AND status was in (QA, "Code Review") AND type != "Product Design"'
-            },
-            headers = headers).json()
+        response = requests.get(
+                JIRA_API_URL,
+                params = {
+                    'jql': 'status in (Closed, done, "To be merged") AND project="' + params['project_name'] + '" AND updated >= -' + params['days_before'] + 'd AND status was in (QA, "Code Review") AND type != "Product Design"'
+                },
+                headers = headers
+            ).json()
+
+        print JIRA_API_URL
+        print response
 
         logging.info("\n\n*** Fetching data from last " + params['days_before'] + " days for project " + params['project_name'] + ". ***\n\n")
 
         return response
 
     def get_params(self):
-        project_name = 'Data / API'
+        project_name = 'West Wing'
         today = datetime.datetime.today().weekday()
         params = {'project_name': project_name, 'days_before': days_count[today]}
 
