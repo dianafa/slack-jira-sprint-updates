@@ -12,13 +12,13 @@ from credentials import SLACK_BOT_TOKEN,\
     SLACK_BOT_NAME
 
 days_count = {
-    0: '3', #Sunday
-    1: '4', #Monday
-    2: '1', #Tue
-    3: '1', #Wed
-    4: '1', #Thu
-    5: '1', #Fri
-    6: '2'  #Sat
+    0: '5', #Monday
+    1: '1', #Tue
+    2: '2', #Wed
+    3: '1', #Thu
+    4: '2', #Fri
+    5: '3', #Sat
+    6: '4'  #Sunday
 }
 
 class JiraController():
@@ -51,13 +51,14 @@ class JiraController():
         response = requests.get(
                 JIRA_API_URL,
                 params = {
-                    'jql': 'status in (Closed, done, "To be merged") AND project="' + params['project_name'] + '" AND updated >= -' + params['days_before'] + 'd AND status was in (QA, "Code Review") AND type != "Product Design"'
+                    'jql': 'status in (Closed, done) AND ' +
+                    'project="' + params['project_name'] + '" AND ' +
+                    'updated >= -' + params['days_before'] + 'd AND ' +
+                    'status was in (QA, "Code Review") AND ' +
+                    'type not in ( "Product Design", Sub-task, Implementation-defect)'
                 },
                 headers = headers
             ).json()
-
-        print JIRA_API_URL
-        print response
 
         logging.info("\n\n*** Fetching data from last " + params['days_before'] + " days for project " + params['project_name'] + ". ***\n\n")
 
@@ -66,7 +67,12 @@ class JiraController():
     def get_params(self):
         project_name = 'West Wing'
         today = datetime.datetime.today().weekday()
-        params = {'project_name': project_name, 'days_before': days_count[today]}
+
+        print today
+        params = {
+            'project_name': project_name,
+            'days_before': days_count[today]
+        }
 
         optlist, args = getopt.getopt(sys.argv[1:], "p:d:", ["project=", "days=", "test"])
 
