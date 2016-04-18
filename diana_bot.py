@@ -51,11 +51,13 @@ class JiraController():
         response = requests.get(
                 JIRA_API_URL,
                 params = {
-                    'jql': 'status in (Closed, done) AND ' +
-                    'project="' + params['project_name'] + '" AND ' +
-                    'updated >= -' + params['days_before'] + 'd AND ' +
-                    'status was in (QA, "Code Review") AND ' +
-                    'type not in ( "Product Design", Sub-task, Implementation-defect)'
+                    'jql':
+                        'status in (Closed, done) AND ' +
+                        'project="' + params['project_name'] + '" AND ' +
+                        'updated >= -' + params['days_before'] + 'd AND ' +
+                        'updated <= startOfDay() AND ' +
+                        'status was in (QA, "Code Review") AND ' +
+                        'type not in ( "Product Design", Sub-task, Implementation-defect)'
                 },
                 headers = headers
             ).json()
