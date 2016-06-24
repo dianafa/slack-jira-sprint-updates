@@ -67,7 +67,7 @@ class JiraController():
         return response
 
     def get_params(self):
-        project_name = 'West Wing'
+        project_name = 'The Old West Wing'
         today = datetime.datetime.today().weekday()
 
         print today
