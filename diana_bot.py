@@ -4,41 +4,53 @@ import datetime
 import requests
 import sys
 import getopt
+import json
+from urllib2 import urlopen
+from bs4 import BeautifulSoup as bs
 from credentials import SLACK_BOT_TOKEN,\
     JIRA_AUTHORIZATION,\
     JIRA_API_URL,\
     SLACK_CHANNEL_ID,\
     SLACK_TEST_CHANNEL_ID,\
-    SLACK_BOT_NAME
+    SLACK_BOT_NAME,\
+    HOOK_URL,\
+    TEST_HOOK_URL
 
-days_count = {
-    0: '5', #Monday
-    1: '1', #Tue
-    2: '2', #Wed
-    3: '1', #Thu
-    4: '2', #Fri
-    5: '3', #Sat
-    6: '4'  #Sunday
-}
+def get_release_number_string(preview=False):
+    domain = 'muppet.wikia.com'
+
+    if preview:
+        domain = 'preview.' + domain
+
+    url = 'http://' + domain + '/wiki/Special:Version'
+    html = bs(urlopen(url), "html.parser")
+
+    for row in html.find_all('tr'):
+        tds = row.find_all('td')
+        if len(tds) == 2 and tds[0].text == 'Fandom code' and tds[1].text.startswith('release-'):
+            version = tds[1].text
+            return str(int(float(version.replace('release-', ''))))
 
 class JiraController():
     def __init__(self):
         logging.basicConfig(level = logging.INFO)
 
-    def get_tickets(self):
+    def get_tickets(self, release_number):
         """
         Gets the finished tickets statistics
         """
         response = []
         params = self.get_params()
+        params['release_number'] = release_number
 
         finished_tickets = self.make_jira_request(params)
 
-        for ticket in finished_tickets['issues']:
-            response.append({
-                "key" : ticket['key'],
-                "desc" : ticket['fields']['summary']
-            })
+        if 'issues' in finished_tickets:
+            for ticket in finished_tickets['issues']:
+                response.append({
+                    "key" : ticket['key'],
+                    "desc" : ticket['fields']['summary']
+                })
 
         return response
 
@@ -53,26 +65,21 @@ class JiraController():
                 params = {
                     'jql':
                         'project="' + params['project_name'] + '" AND ' +
-                        'resolved >= -' + params['days_before'] + 'd AND ' +
-                        'resolved <= startOfDay() AND ' +
-                        'status was in (QA, "Code Review") AND ' +
+                        'fixVersion = "' + params['release_number'] + '" AND ' +
                         'type not in ("Product Design", Sub-task, Implementation-defect)'
                 },
                 headers = headers
             ).json()
 
-        logging.info("\n\n*** Fetching data from last " + params['days_before'] + " days for project " + params['project_name'] + ". ***\n\n")
+        logging.info("\n\n*** Fetching data from preview. Relase: " + params['release_number'] + " for project " + params['project_name'] + ". ***\n\n")
 
         return response
 
     def get_params(self):
-        project_name = 'West Wing'
-        today = datetime.datetime.today().weekday()
+        project_name = 'ADEN'
 
-        print today
         params = {
-            'project_name': project_name,
-            'days_before': days_count[today]
+            'project_name': project_name
         }
 
         optlist, args = getopt.getopt(sys.argv[1:], "p:d:", ["project=", "days=", "test"])
@@ -80,8 +87,6 @@ class JiraController():
         for option, arg in optlist:
             if option in ("-p", "--project") and arg != '--days':
                 params['project_name'] = arg
-            if option in ("-d", "--days") and arg.isdigit():
-                params['days_before'] = arg
 
         return params
 
@@ -89,39 +94,38 @@ class JiraController():
 class SlackUpdater(object):
     SLACK_API_URL = 'https://slack.com/api/chat.postMessage'
 
-    def __init__(self, slack_bot_token = None, slack_bot_channel = SLACK_CHANNEL_ID):
+    def __init__(self, slack_hook_url = None, slack_bot_channel_name = '#adeng-bots'):
         params = sys.argv[1:]
 
         for param in params:
             if param == "--test":
-                slack_bot_channel = SLACK_TEST_CHANNEL_ID
+                slack_bot_channel_name = '#diana-test'
+                slack_hook_url = TEST_HOOK_URL
                 break
 
-        assert slack_bot_token is not None
-        assert slack_bot_channel is not None
+        assert slack_hook_url is not None
+        assert slack_bot_channel_name is not None
 
-        self.slack_bot_token = slack_bot_token
-        self.slack_bot_channel = slack_bot_channel
+        self.slack_hook_url = slack_hook_url
+        self.slack_bot_channel_name = slack_bot_channel_name
 
-    def post_slack_message(self, payload):
-        response = requests.post(self.SLACK_API_URL,
+    def post_slack_message(self, text):
+        response = requests.post(self.slack_hook_url,
                       data = {
-                          'channel': self.slack_bot_channel,
-                          'token': self.slack_bot_token,
-                          'text': payload,
-                          'username': SLACK_BOT_NAME
+                          'payload': json.dumps({"text": text, "channel": self.slack_bot_channel_name}),
                       })
 
-        logging.info("\nPosting to Slack: done")
+        logging.info("\nPosting to Slack: done. Response: " + str(response.status_code))
 
-    def prepare_slack_update(self, tickets, team = '*Fan Knowledge West- Wing*'):
+    def prepare_slack_update(self, release_number, tickets, team = '*Ad Engineering*'):
         """
         Processes acquired results
         """
         if (len(tickets) == 0):
-            return team + ' :Nothing user facing'
+            return team + ' : Nothing to see here.'
 
-        result = '```'
+        result = 'Preview version: *' + release_number + '*. Tickets below will be released tomorrow.'
+        result += '```'
 
         for ticket in tickets:
             result += 'https://wikia-inc.atlassian.net/browse/' + ticket['key'] + ' ' + ticket['desc'] + '\n'
@@ -131,8 +135,9 @@ class SlackUpdater(object):
 
 if __name__ == "__main__":
     calculation = JiraController()
-    slack_updater = SlackUpdater(slack_bot_token = SLACK_BOT_TOKEN)
+    slack_updater = SlackUpdater(slack_hook_url = HOOK_URL)
+    release_number = get_release_number_string(True)
 
-    tickets = calculation.get_tickets()
-    release_update = slack_updater.prepare_slack_update(tickets)
+    tickets = calculation.get_tickets(release_number)
+    release_update = slack_updater.prepare_slack_update(release_number, tickets)
     slack_updater.post_slack_message(release_update)
