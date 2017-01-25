@@ -10,10 +10,10 @@ from bs4 import BeautifulSoup as bs
 from credentials import SLACK_BOT_TOKEN,\
     JIRA_AUTHORIZATION,\
     JIRA_API_URL,\
-    SLACK_CHANNEL_ID,\
     SLACK_TEST_CHANNEL_ID,\
     SLACK_BOT_NAME,\
-    HOOK_URL,\
+    HOOK_URL_ADENG_BOTS,\
+    HOOK_URL_WEEKLY_RELEASE,\
     TEST_HOOK_URL
 
 def get_release_number_string(preview=False):
@@ -94,7 +94,7 @@ class JiraController():
 class SlackUpdater(object):
     SLACK_API_URL = 'https://slack.com/api/chat.postMessage'
 
-    def __init__(self, slack_hook_url = None, slack_bot_channel_name = '#adeng-bots'):
+    def __init__(self, slack_hook_url = None, slack_bot_channel_name = None):
         params = sys.argv[1:]
 
         for param in params:
@@ -135,9 +135,12 @@ class SlackUpdater(object):
 
 if __name__ == "__main__":
     calculation = JiraController()
-    slack_updater = SlackUpdater(slack_hook_url = HOOK_URL)
+    slack_updater_adeng = SlackUpdater(slack_hook_url = HOOK_URL_ADENG_BOTS, slack_bot_channel_name = '#adeng-bots')
+    slack_updater_weekly_release = SlackUpdater(slack_hook_url = HOOK_URL_WEEKLY_RELEASE, slack_bot_channel_name = '#weekly-release-update')
+
     release_number = get_release_number_string(True)
 
     tickets = calculation.get_tickets(release_number)
-    release_update = slack_updater.prepare_slack_update(release_number, tickets)
-    slack_updater.post_slack_message(release_update)
+
+    slack_updater_adeng.post_slack_message(release_update)
+    slack_updater_weekly_release.post_slack_message(release_update)
