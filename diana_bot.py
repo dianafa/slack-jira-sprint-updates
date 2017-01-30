@@ -117,7 +117,8 @@ class SlackUpdater(object):
 
         logging.info("\nPosting to Slack: done. Response: " + str(response.status_code))
 
-    def prepare_slack_update(self, release_number, tickets, team = '*Ad Engineering*'):
+    @staticmethod
+    def prepare_slack_update(release_number, tickets, team = '*Ad Engineering*'):
         """
         Processes acquired results
         """
@@ -141,6 +142,7 @@ if __name__ == "__main__":
     release_number = get_release_number_string(True)
 
     tickets = calculation.get_tickets(release_number)
+    release_update = SlackUpdater.prepare_slack_update(release_number, tickets)
 
     slack_updater_adeng.post_slack_message(release_update)
     slack_updater_weekly_release.post_slack_message(release_update)
